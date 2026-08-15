@@ -132,22 +132,22 @@ function gerarPedido(digits: string): Pedido {
 
   const codigo = `WT${(h % 1000000000).toString().padStart(9, "0")}BR`;
 
-  const avisos = [
+  const avisos: Array<string | undefined> = [
     "Sua moto mudou de lote e seguirá com a transportadora parceira RodoSul. O prazo permanece o mesmo.",
     "Rota otimizada para reduzir o tempo de entrega. O prazo permanece o mesmo.",
     undefined,
   ];
+  const aviso = entregue ? undefined : avisos[h % avisos.length];
 
   return {
     nome: `Cliente ${digits.slice(0, 3)}`,
     codigo,
     previsao,
     etapa,
-    aviso: entregue ? undefined : avisos[h % avisos.length],
+    ...(aviso ? { aviso } : {}),
     historico,
   };
 }
-
 
 function Index() {
   const [cpf, setCpf] = useState("");
@@ -161,13 +161,8 @@ function Index() {
       setErro("Digite um CPF válido com 11 dígitos.");
       return;
     }
-    const encontrado = PEDIDOS[digits];
-    if (!encontrado) {
-      setErro("Nenhum pedido encontrado para este CPF.");
-      return;
-    }
     setErro("");
-    setPedido(encontrado);
+    setPedido(gerarPedido(digits));
   }
 
   return (
