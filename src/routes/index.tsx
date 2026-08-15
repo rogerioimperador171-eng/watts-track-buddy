@@ -96,9 +96,9 @@ function gerarPedido(digits: string): Pedido {
   const diasDesdePedido = h % 10;
   const dataPedido = addDias(hoje, -diasDesdePedido);
 
-  const origem = CIDADES[h % CIDADES.length];
-  const rota = CIDADES[(h + 3) % CIDADES.length];
-  const destino = CIDADES[(h + 5) % CIDADES.length];
+  const origem = CIDADES[h % CIDADES.length]!;
+  const rota = CIDADES[(h + 3) % CIDADES.length]!;
+  const destino = CIDADES[(h + 5) % CIDADES.length]!;
 
   const eventos: Array<{ dia: number; hora: string; texto: string; local: string }> = [
     { dia: 0, hora: "09:05", texto: "Pedido preparado e embalado", local: origem },
