@@ -35,73 +35,21 @@ type Pedido = {
   historico: Evento[];
 };
 
-const PEDIDOS: Record<string, Pedido> = {
-  "12345678900": {
-    nome: "Rogério I.",
-    codigo: "WT123456789BR",
-    previsao: "5 dias úteis",
-    etapa: 1,
-    aviso:
-      "Sua moto mudou de lote e seguirá com a transportadora parceira RodoSul. O prazo permanece o mesmo.",
-    historico: [
-      {
-        data: "20/03/2026",
-        hora: "14:50",
-        texto: "Objeto em transferência para a filial regional",
-        local: "Curitiba / PR",
-      },
-      {
-        data: "19/03/2026",
-        hora: "08:12",
-        texto: "Objeto em trânsito com a transportadora parceira",
-        local: "Joinville / SC",
-      },
-      {
-        data: "18/03/2026",
-        hora: "17:30",
-        texto: "Pedido postado no centro de distribuição",
-        local: "São José / SC",
-      },
-      {
-        data: "18/03/2026",
-        hora: "09:05",
-        texto: "Pedido preparado e embalado",
-        local: "São José / SC",
-      },
-    ],
-  },
-  "98765432100": {
-    nome: "Marina S.",
-    codigo: "WT998877665BR",
-    previsao: "Entregue",
-    etapa: 2,
-    historico: [
-      {
-        data: "21/03/2026",
-        hora: "11:20",
-        texto: "Objeto entregue ao destinatário",
-        local: "Campinas / SP",
-      },
-      {
-        data: "21/03/2026",
-        hora: "07:45",
-        texto: "Objeto saiu para entrega",
-        local: "Campinas / SP",
-      },
-      {
-        data: "20/03/2026",
-        hora: "19:00",
-        texto: "Pedido postado no centro de distribuição",
-        local: "Sorocaba / SP",
-      },
-    ],
-  },
-};
-
 const ETAPAS = [
   { icon: Package, label: "Pedido Preparado" },
   { icon: Truck, label: "Em transporte" },
   { icon: Home, label: "Entregue" },
+];
+
+const CIDADES = [
+  "São José / SC",
+  "Joinville / SC",
+  "Curitiba / PR",
+  "Sorocaba / SP",
+  "Campinas / SP",
+  "Belo Horizonte / MG",
+  "Goiânia / GO",
+  "Salvador / BA",
 ];
 
 function formatCpf(v: string) {
@@ -111,6 +59,95 @@ function formatCpf(v: string) {
     .replace(/(\d{3})\.(\d{3})(\d)/, "$1.$2.$3")
     .replace(/(\d{3})\.(\d{3})\.(\d{3})(\d)/, "$1.$2.$3-$4");
 }
+
+function hash(str: string) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0;
+  return h;
+}
+
+function fmtData(d: Date) {
+  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
+function addDias(base: Date, dias: number) {
+  const d = new Date(base);
+  d.setDate(d.getDate() + dias);
+  return d;
+}
+
+function diasUteisEntre(inicio: Date, fim: Date) {
+  let dias = 0;
+  const d = new Date(inicio);
+  while (d < fim) {
+    d.setDate(d.getDate() + 1);
+    const wd = d.getDay();
+    if (wd !== 0 && wd !== 6) dias++;
+  }
+  return dias;
+}
+
+function gerarPedido(digits: string): Pedido {
+  const h = hash(digits);
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+
+  // Data do pedido: entre 0 e 9 dias atrás (determinístico pelo CPF)
+  const diasDesdePedido = h % 10;
+  const dataPedido = addDias(hoje, -diasDesdePedido);
+
+  const origem = CIDADES[h % CIDADES.length];
+  const rota = CIDADES[(h + 3) % CIDADES.length];
+  const destino = CIDADES[(h + 5) % CIDADES.length];
+
+  const eventos: Array<{ dia: number; hora: string; texto: string; local: string }> = [
+    { dia: 0, hora: "09:05", texto: "Pedido preparado e embalado", local: origem },
+    { dia: 0, hora: "17:30", texto: "Pedido postado no centro de distribuição", local: origem },
+    { dia: 2, hora: "08:12", texto: "Objeto em trânsito com a transportadora parceira", local: rota },
+    { dia: 4, hora: "14:50", texto: "Objeto em transferência para a filial regional", local: destino },
+    { dia: 6, hora: "07:45", texto: "Objeto saiu para entrega", local: destino },
+    { dia: 6, hora: "11:20", texto: "Objeto entregue ao destinatário", local: destino },
+  ];
+
+  const ocorridos = eventos.filter((ev) => ev.dia <= diasDesdePedido);
+  const historico: Evento[] = ocorridos
+    .map((ev) => ({
+      data: fmtData(addDias(dataPedido, ev.dia)),
+      hora: ev.hora,
+      texto: ev.texto,
+      local: ev.local,
+    }))
+    .reverse();
+
+  const entregue = diasDesdePedido >= 6;
+  const etapa: 0 | 1 | 2 = entregue ? 2 : diasDesdePedido >= 2 ? 1 : 0;
+
+  const dataEntrega = addDias(dataPedido, 6);
+  const uteis = Math.max(diasUteisEntre(hoje, dataEntrega), 0);
+  const previsao = entregue
+    ? "Entregue"
+    : uteis <= 1
+      ? "Chega hoje ou amanhã"
+      : `${uteis} dias úteis (até ${fmtData(dataEntrega)})`;
+
+  const codigo = `WT${(h % 1000000000).toString().padStart(9, "0")}BR`;
+
+  const avisos = [
+    "Sua moto mudou de lote e seguirá com a transportadora parceira RodoSul. O prazo permanece o mesmo.",
+    "Rota otimizada para reduzir o tempo de entrega. O prazo permanece o mesmo.",
+    undefined,
+  ];
+
+  return {
+    nome: `Cliente ${digits.slice(0, 3)}`,
+    codigo,
+    previsao,
+    etapa,
+    aviso: entregue ? undefined : avisos[h % avisos.length],
+    historico,
+  };
+}
+
 
 function Index() {
   const [cpf, setCpf] = useState("");
