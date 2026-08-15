@@ -222,9 +222,6 @@ function Index() {
                 <Search className="mr-2 h-5 w-5" /> Rastrear pedido
               </Button>
             </form>
-            <p className="mt-6 rounded-2xl bg-muted px-4 py-3 text-xs text-muted-foreground">
-              CPFs de demonstração: 123.456.789-00 (em transporte) e 987.654.321-00 (entregue).
-            </p>
           </section>
         ) : (
           <div className="mt-6 space-y-6">
